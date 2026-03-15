@@ -1,0 +1,22 @@
+# Dependencies
+/node_modules
+/client/node_modules
+/server/node_modules
+
+# Build artifacts
+/client/dist
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+
+# SQLite database
+/server/analytics.db
+
+# Uploads
+/server/uploads
