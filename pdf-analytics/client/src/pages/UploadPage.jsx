@@ -46,36 +46,52 @@ const UploadPage = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-full max-w-md p-8 space-y-8 bg-card rounded-lg shadow-lg">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-lg p-8 space-y-6 bg-card rounded-xl shadow-2xl">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-indigo-400">PDF Analytics</h1>
-          <p className="mt-2 text-gray-400">Upload your PDF to get a shareable link and track analytics.</p>
+          <p className="mt-2 text-muted-foreground">Upload a PDF to generate a shareable link and track viewer engagement.</p>
         </div>
 
         {!uploadData ? (
-          <div {...getRootProps()} className={`p-10 border-2 border-dashed rounded-lg text-center cursor-pointer ${isDragActive ? 'border-primary' : 'border-gray-600'}`}>
+          <div 
+            {...getRootProps()} 
+            className={`p-12 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors duration-300 ${isDragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'}`}>
             <input {...getInputProps()} />
             {uploading ? (
-              <p>Uploading...</p>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-muted-foreground">Uploading...</p>
+              </div>
             ) : (
-              <p>{isDragActive ? 'Drop the PDF here ...' : 'Drag \'n\' drop a PDF here, or click to select one'}</p>
+              <div>
+                <p className="text-lg font-semibold">{isDragActive ? 'Drop the PDF here' : 'Drag & drop a PDF or click to select'}</p>
+                <p className="text-sm text-muted-foreground mt-1">Max file size: 20MB</p>
+              </div>
             )}
           </div>
         ) : (
-          <div className="space-y-4 text-center">
-            <h2 className="text-2xl font-bold">Upload Successful!</h2>
-            <div>
-              <label className="font-bold">Shareable Link:</label>
-              <input type="text" readOnly value={`${window.location.origin}${uploadData.viewerUrl}`} className="w-full p-2 mt-1 text-gray-900 bg-gray-200 rounded" />
+          <div className="animate-fade-in space-y-4 text-center">
+            <h2 className="text-2xl font-bold text-primary">Upload Successful!</h2>
+            <div className="space-y-2">
+              <label className="font-semibold text-left block">Shareable Viewer Link:</label>
+              <input 
+                type="text" 
+                readOnly 
+                value={`${window.location.origin}${uploadData.viewerUrl}`}
+                className="w-full p-3 bg-background border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                onFocus={(e) => e.target.select()} 
+              />
             </div>
-            <button onClick={() => navigate(uploadData.dashboardUrl)} className="w-full py-2 px-4 font-bold text-white bg-primary rounded hover:bg-indigo-700">
+            <button 
+              onClick={() => navigate(uploadData.dashboardUrl)} 
+              className="w-full py-3 px-4 font-bold text-white bg-primary rounded-md hover:bg-primary/90 transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
               Go to Dashboard
             </button>
           </div>
         )}
 
-        {error && <p className="text-red-500 text-center">{error}</p>}
+        {error && <p className="text-destructive text-center font-medium">{error}</p>}
       </div>
     </div>
   );

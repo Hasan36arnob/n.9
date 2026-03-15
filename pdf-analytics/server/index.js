@@ -36,7 +36,7 @@ db.exec(`
     lastSeen TEXT NOT NULL,
     lastPage INTEGER DEFAULT 1,
     totalTimeMs INTEGER DEFAULT 0,
-    UNIQUE(pdfShareToken, viewerId, sessionId)
+    UNIQUE(pdfShareToken, viewerId)
   );
 `);
 db.exec(`
@@ -98,7 +98,7 @@ app.post('/api/track', (req, res) => {
   const sessionStmt = db.prepare(`
     INSERT INTO viewer_sessions (pdfShareToken, viewerId, sessionId, firstSeen, lastSeen, lastPage, totalTimeMs)
     VALUES (?, ?, ?, ?, ?, 1, 0)
-    ON CONFLICT(pdfShareToken, viewerId, sessionId) DO UPDATE SET lastSeen = excluded.lastSeen;
+    ON CONFLICT(pdfShareToken, viewerId) DO UPDATE SET lastSeen = excluded.lastSeen, sessionId = excluded.sessionId;
   `);
   sessionStmt.run(shareToken, viewerId, sessionId, now, now);
 
@@ -118,9 +118,9 @@ app.post('/api/track', (req, res) => {
   const updateTotalStmt = db.prepare(`
     UPDATE viewer_sessions 
     SET totalTimeMs = totalTimeMs + ?, lastPage = MAX(lastPage, ?), lastSeen = ?
-    WHERE pdfShareToken = ? AND viewerId = ? AND sessionId = ?
+    WHERE pdfShareToken = ? AND viewerId = ?
   `);
-  updateTotalStmt.run(totalTimeMs, maxPage, now, shareToken, viewerId, sessionId);
+  updateTotalStmt.run(totalTimeMs, maxPage, now, shareToken, viewerId);
 
   res.json({ ok: true });
 });
@@ -159,16 +159,22 @@ app.get('/api/analytics/:shareToken', (req, res) => {
   }));
 
   const viewersStmt = db.prepare(`
-    SELECT viewerId, MIN(firstSeen) as firstSeen, MAX(lastSeen) as lastSeen, GROUP_CONCAT(DISTINCT page) as pagesViewed, SUM(totalTimeMs) as totalTimeSeconds, MAX(lastPage) as lastPage
-    FROM viewer_sessions
-    JOIN page_events ON viewer_sessions.sessionId = page_events.sessionId
-    WHERE viewer_sessions.pdfShareToken = ?
-    GROUP BY viewerId
+    SELECT 
+      vs.viewerId, 
+      MIN(vs.firstSeen) as firstSeen, 
+      MAX(vs.lastSeen) as lastSeen, 
+      GROUP_CONCAT(DISTINCT pe.page) as pagesViewed, 
+      SUM(pe.timeSpentMs) as totalTimeMs, 
+      MAX(vs.lastPage) as lastPage
+    FROM viewer_sessions vs
+    JOIN page_events pe ON vs.viewerId = pe.viewerId AND vs.pdfShareToken = pe.pdfShareToken
+    WHERE vs.pdfShareToken = ?
+    GROUP BY vs.viewerId
   `);
   const viewers = viewersStmt.all(shareToken).map(v => ({
     ...v,
-    pagesViewed: v.pagesViewed.split(',').map(Number).sort((a,b) => a-b),
-    totalTimeSeconds: v.totalTimeSeconds / 1000
+    pagesViewed: v.pagesViewed ? v.pagesViewed.split(',').map(Number).sort((a,b) => a-b) : [],
+    totalTimeSeconds: v.totalTimeMs / 1000
   }));
 
   res.json({

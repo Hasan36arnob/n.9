@@ -42,26 +42,42 @@ const ViewerPage = () => {
 
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
-    const depth = (scrollTop / (scrollHeight - clientHeight)) * 100;
-    scrollDepth.current = Math.max(scrollDepth.current, depth);
+    if (scrollHeight > clientHeight) {
+      const depth = (scrollTop / (scrollHeight - clientHeight)) * 100;
+      scrollDepth.current = Math.max(scrollDepth.current, depth);
+    } else {
+      scrollDepth.current = 100;
+    }
   };
 
   const sendTrackingData = useCallback(() => {
+    // Add time for the currently active page before creating the payload
+    const timeSpentOnCurrentPage = Date.now() - pageStartTime.current;
+    if (pageNumber) {
+      pageTimeAccumulator.current[pageNumber] = (pageTimeAccumulator.current[pageNumber] || 0) + timeSpentOnCurrentPage;
+    }
+    pageStartTime.current = Date.now(); // Reset start time for the next interval
+
     const events = Object.keys(pageTimeAccumulator.current).map(page => ({
       page: parseInt(page),
       timeSpentMs: pageTimeAccumulator.current[page],
-      scrollDepth: scrollDepth.current // Simplified: using same scroll depth for all pages in batch
+      scrollDepth: scrollDepth.current
     }));
 
     if (events.length > 0) {
+      const payload = { shareToken, viewerId, sessionId, events };
       fetch('/api/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shareToken, viewerId, sessionId, events }),
+        body: JSON.stringify(payload),
+        keepalive: true, // Keep request alive even if tab is closed
       });
-      pageTimeAccumulator.current = {}; // Reset after sending
+      
+      // Clear accumulator after flushing
+      pageTimeAccumulator.current = {};
+      scrollDepth.current = 0; // Also reset scroll depth
     }
-  }, [shareToken, viewerId, sessionId]);
+  }, [shareToken, viewerId, sessionId, pageNumber]);
 
   useEffect(() => {
     const interval = setInterval(sendTrackingData, 5000);
