@@ -161,14 +161,14 @@ app.get('/api/analytics/:shareToken', (req, res) => {
   const viewersStmt = db.prepare(`
     SELECT 
       vs.viewerId, 
-      MIN(vs.firstSeen) as firstSeen, 
-      MAX(vs.lastSeen) as lastSeen, 
+      vs.firstSeen, 
+      vs.lastSeen, 
       GROUP_CONCAT(DISTINCT pe.page) as pagesViewed, 
-      SUM(pe.timeSpentMs) as totalTimeMs, 
-      MAX(vs.lastPage) as lastPage
+      vs.totalTimeMs, 
+      vs.lastPage
     FROM viewer_sessions vs
-    JOIN page_events pe ON vs.viewerId = pe.viewerId AND vs.pdfShareToken = pe.pdfShareToken
-    WHERE vs.pdfShareToken = ?
+    LEFT JOIN page_events pe ON vs.viewerId = pe.viewerId AND vs.pdfShareToken = pe.pdfShareToken
+    WHERE vs.pdfShareToken = ? 
     GROUP BY vs.viewerId
   `);
   const viewers = viewersStmt.all(shareToken).map(v => ({
