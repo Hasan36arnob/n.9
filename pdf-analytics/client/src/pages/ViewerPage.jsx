@@ -51,6 +51,7 @@ const ViewerPage = () => {
   };
 
   const sendTrackingData = useCallback(() => {
+    if (!viewerId) return;
     // Add time for the currently active page before creating the payload
     const timeSpentOnCurrentPage = Date.now() - pageStartTime.current;
     if (pageNumber) {

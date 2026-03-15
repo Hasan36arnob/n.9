@@ -16,7 +16,7 @@ const DashboardPage = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`/api/analytics/${shareToken}`);
+      const response = await fetch(`/api/analytics/${shareToken}?t=${Date.now()}`);
       const data = await response.json();
       setAnalytics(data);
     } catch (error) {
