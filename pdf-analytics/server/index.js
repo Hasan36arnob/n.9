@@ -35,8 +35,7 @@ db.exec(`
     firstSeen TEXT NOT NULL,
     lastSeen TEXT NOT NULL,
     lastPage INTEGER DEFAULT 1,
-    totalTimeMs INTEGER DEFAULT 0,
-    UNIQUE(pdfShareToken, viewerId)
+    totalTimeMs INTEGER DEFAULT 0
   );
 `);
 db.exec(`
@@ -91,38 +90,39 @@ app.post('/api/upload', upload.single('pdf'), (req, res) => {
 });
 
 app.post('/api/track', (req, res) => {
-  const { shareToken, viewerId, events, sessionId } = req.body;
-  const now = new Date().toISOString();
+  try {
+    const { shareToken, viewerId, events, sessionId } = req.body;
+    const now = new Date().toISOString();
 
-  // Upsert viewer session
-  const sessionStmt = db.prepare(`
-    INSERT INTO viewer_sessions (pdfShareToken, viewerId, sessionId, firstSeen, lastSeen, lastPage, totalTimeMs)
-    VALUES (?, ?, ?, ?, ?, 1, 0)
-    ON CONFLICT(pdfShareToken, viewerId) DO UPDATE SET lastSeen = excluded.lastSeen, sessionId = excluded.sessionId;
-  `);
-  sessionStmt.run(shareToken, viewerId, sessionId, now, now);
+    // Insert or ignore duplicate session
+    const insertStmt = db.prepare('INSERT OR IGNORE INTO viewer_sessions (pdfShareToken, viewerId, sessionId, firstSeen, lastSeen, lastPage, totalTimeMs) VALUES (?, ?, ?, ?, ?, 1, 0)');
+    insertStmt.run(shareToken, viewerId, sessionId || nanoid(), now, now);
 
-  // Insert page events
-  const eventStmt = db.prepare('INSERT INTO page_events (pdfShareToken, viewerId, sessionId, page, timeSpentMs, scrollDepth, recordedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  let totalTimeMs = 0;
-  let maxPage = 1;
-  for (const event of events) {
-    eventStmt.run(shareToken, viewerId, sessionId, event.page, event.timeSpentMs, event.scrollDepth, now);
-    totalTimeMs += event.timeSpentMs;
-    if (event.page > maxPage) {
-      maxPage = event.page;
+    // Update existing session
+    const updateStmt = db.prepare('UPDATE viewer_sessions SET lastSeen = ?, sessionId = ? WHERE pdfShareToken = ? AND viewerId = ?');
+    updateStmt.run(now, sessionId || nanoid(), shareToken, viewerId);
+
+    // Insert page events
+    const eventStmt = db.prepare('INSERT INTO page_events (pdfShareToken, viewerId, sessionId, page, timeSpentMs, scrollDepth, recordedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    let totalTimeMs = 0;
+    let maxPage = 1;
+    for (const event of events) {
+      eventStmt.run(shareToken, viewerId, sessionId || nanoid(), event.page, event.timeSpentMs, event.scrollDepth, now);
+      totalTimeMs += event.timeSpentMs;
+      if (event.page > maxPage) {
+        maxPage = event.page;
+      }
     }
+
+    // Update totals
+    const totalsStmt = db.prepare('UPDATE viewer_sessions SET totalTimeMs = totalTimeMs + ?, lastPage = GREATEST(lastPage, ?) WHERE pdfShareToken = ? AND viewerId = ?');
+    totalsStmt.run(totalTimeMs, maxPage, shareToken, viewerId);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Track error:', error);
+    res.status(500).json({ error: 'Track failed' });
   }
-
-  // Update session totals
-  const updateTotalStmt = db.prepare(`
-    UPDATE viewer_sessions 
-    SET totalTimeMs = totalTimeMs + ?, lastPage = MAX(lastPage, ?), lastSeen = ?
-    WHERE pdfShareToken = ? AND viewerId = ?
-  `);
-  updateTotalStmt.run(totalTimeMs, maxPage, now, shareToken, viewerId);
-
-  res.json({ ok: true });
 });
 
 app.get('/api/analytics/:shareToken', (req, res) => {
@@ -133,16 +133,9 @@ app.get('/api/analytics/:shareToken', (req, res) => {
     return res.status(404).json({ error: 'PDF not found.' });
   }
 
-  const totalViewers = db.prepare('SELECT COUNT(DISTINCT viewerId) as count FROM viewer_sessions WHERE pdfShareToken = ?').get(shareToken).count;
+  const totalViewers = db.prepare('SELECT COUNT(DISTINCT viewerId) as count FROM viewer_sessions WHERE pdfShareToken = ?').get(shareToken).count || 0;
 
   const avgReadingTime = db.prepare('SELECT AVG(totalTimeMs) as avg FROM viewer_sessions WHERE pdfShareToken = ?').get(shareToken).avg || 0;
-
-  const totalPagesStmt = db.prepare('SELECT COUNT(*) as count FROM page_events WHERE pdfShareToken = ? GROUP BY page').all(shareToken);
-  const totalPages = totalPagesStmt.length;
-
-  const lastPageReachStmt = db.prepare('SELECT COUNT(DISTINCT viewerId) as count FROM viewer_sessions WHERE pdfShareToken = ? AND lastPage = ?');
-  const viewersReachedLastPage = totalPages > 0 ? lastPageReachStmt.get(shareToken, totalPages).count : 0;
-  const completionRate = totalViewers > 0 ? (viewersReachedLastPage / totalViewers) * 100 : 0;
 
   const pageStatsStmt = db.prepare(`
     SELECT page, AVG(timeSpentMs) as avgTimeMs, COUNT(DISTINCT viewerId) as viewerCount
@@ -151,21 +144,27 @@ app.get('/api/analytics/:shareToken', (req, res) => {
     GROUP BY page
     ORDER BY page ASC
   `);
-  const pageStats = pageStatsStmt.all(shareToken).map(row => ({
+  const pageStatsRaw = pageStatsStmt.all(shareToken);
+  const pageStats = pageStatsRaw.map(row => ({
     page: row.page,
     avgTimeSeconds: row.avgTimeMs / 1000,
     viewerCount: row.viewerCount,
     dropoffPercent: totalViewers > 0 ? ((totalViewers - row.viewerCount) / totalViewers) * 100 : 0
   }));
 
+  const totalPages = pageStatsRaw.length;
+
+  const viewersReachedLastPage = totalPages > 0 ? db.prepare('SELECT COUNT(DISTINCT viewerId) as count FROM viewer_sessions WHERE pdfShareToken = ? AND lastPage >= ?').get(shareToken, totalPages)?.count : 0;
+  const completionRate = totalViewers > 0 ? (viewersReachedLastPage / totalViewers) * 100 : 0;
+
   const viewersStmt = db.prepare(`
     SELECT 
       vs.viewerId, 
       vs.firstSeen, 
       vs.lastSeen, 
-      GROUP_CONCAT(DISTINCT pe.page) as pagesViewed, 
       vs.totalTimeMs, 
-      vs.lastPage
+      vs.lastPage,
+      GROUP_CONCAT(DISTINCT pe.page) as pagesViewed
     FROM viewer_sessions vs
     LEFT JOIN page_events pe ON vs.viewerId = pe.viewerId AND vs.pdfShareToken = pe.pdfShareToken
     WHERE vs.pdfShareToken = ? 
@@ -183,6 +182,8 @@ app.get('/api/analytics/:shareToken', (req, res) => {
     completionRate,
     pageStats,
     viewers,
+    totalPages,
+    pdfName: pdf.originalName
   });
 });
 
