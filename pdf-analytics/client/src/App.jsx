@@ -6,6 +6,11 @@ import PricingPage from './pages/PricingPage';
 import UploadPage from './pages/UploadPage';
 import ViewerPage from './pages/ViewerPage';
 import DashboardPage from './pages/DashboardPage';
+//
+
+
+
+// Main App component with routing
 
 function App() {
   return (
