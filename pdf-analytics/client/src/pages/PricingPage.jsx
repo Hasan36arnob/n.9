@@ -22,6 +22,8 @@ const PricingCard = ({ title, price, features, ctaText, popular = false }) => (
   </div>
 );
 
+
+// Main PricingPage component
 const PricingPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white pt-20">
