@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+
+// PricingCard component to display individual pricing plans
 const PricingCard = ({ title, price, features, ctaText, popular = false }) => (
   <div className={`bg-slate-800/50 p-8 rounded-2xl shadow-2xl border-2 transition-all duration-300 hover:shadow-3xl hover:-translate-y-2 ${popular ? 'border-indigo-500 ring-4 ring-indigo-500/20 relative' : 'border-slate-700/50'}`}>
     {popular && <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-1 rounded-xl text-sm font-bold shadow-lg">Most Popular</div>}
