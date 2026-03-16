@@ -6,6 +6,8 @@ import 'react-pdf/dist/esm/Page/TextLayer.css';
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
 
+
+// ViewerPage component to display the PDF and track user interactions
 const ViewerPage = () => {
   const { shareToken } = useParams();
   const [numPages, setNumPages] = useState(null);
@@ -110,5 +112,5 @@ const ViewerPage = () => {
     </div>
   );
 };
-
+// Export the ViewerPage component as default
 export default ViewerPage;
