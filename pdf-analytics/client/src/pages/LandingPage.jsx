@@ -19,7 +19,7 @@ const PricingCard = ({ title, price, features, ctaText, popular = false }) => (
     </Link>
   </div>
 );
-
+//
 const Testimonial = ({ quote, author, role, company }) => (
   <div className="bg-card/50 p-8 rounded-2xl backdrop-blur-sm border border-border">
     <p className="text-lg mb-6 italic">"{quote}"</p>
