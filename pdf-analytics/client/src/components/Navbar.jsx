@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-
+//this is the navbar comp
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
 
