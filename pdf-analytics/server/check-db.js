@@ -4,7 +4,7 @@ const db = new Database('analytics.db');
 console.log('=== TABLES ===');
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table';").all();
 tables.forEach(table => console.log(table.name));
-
+//clg
 console.log('\n=== SCHEMA ===');
 tables.forEach(({name}) => {
   const schema = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?;`).get(name);

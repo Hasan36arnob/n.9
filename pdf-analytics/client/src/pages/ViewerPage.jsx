@@ -92,7 +92,7 @@ const ViewerPage = () => {
       sendTrackingData(); // Final send on component unmount
     };
   }, [sendTrackingData]);
-
+//
   return (
     <div className="min-h-screen bg-background flex flex-col items-center p-4">
       <div onScroll={handleScroll} className="w-full max-w-4xl h-[calc(100vh-100px)] overflow-auto">
