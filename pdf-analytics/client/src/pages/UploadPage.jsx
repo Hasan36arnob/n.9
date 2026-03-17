@@ -42,7 +42,9 @@ const UploadPage = () => {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop, 
-    accept: 'application/pdf' 
+    accept: {
+      'application/pdf': ['.pdf']
+    }
   });
 
   return (
