@@ -18,7 +18,7 @@ const ViewerPage = () => {
   const pageTimeAccumulator = useRef({});
   const pageStartTime = useRef(Date.now());
   const scrollDepth = useRef(0);
-
+//using useEffect
   useEffect(() => {
     let id = localStorage.getItem('viewerId');
     if (!id) {
