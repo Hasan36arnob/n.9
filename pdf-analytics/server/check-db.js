@@ -1,6 +1,6 @@
 const Database = require('better-sqlite3');
 const db = new Database('analytics.db');
-
+//clg
 console.log('=== TABLES ===');
 const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table';").all();
 tables.forEach(table => console.log(table.name));
