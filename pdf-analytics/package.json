@@ -8,7 +8,7 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev": "node init && concurrently \"npm run server\" \"npm run client\"",
     "server": "npm start --workspace=server",
     "client": "npm run dev --workspace=client"
   },
