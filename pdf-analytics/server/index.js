@@ -10,7 +10,7 @@ const app = express();
 const port = 3001;
 const db = new Database('analytics.db');
 
-// Create uploads directory if it doesn't exist
+// Create uploads 
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
