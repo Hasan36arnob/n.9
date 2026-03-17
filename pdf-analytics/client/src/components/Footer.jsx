@@ -1,5 +1,5 @@
 import React from 'react';
-
+//this is the footer 
 const Footer = () => (
   <footer className="bg-slate-900/50 border-t border-slate-800 pt-12 pb-8">
     <div className="max-w-7xl mx-auto px-6">
