@@ -112,5 +112,5 @@ const ViewerPage = () => {
     </div>
   );
 };
-// Export the ViewerPage component as default
+// Export the ViewerPage component as 
 export default ViewerPage;

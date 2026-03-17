@@ -51,6 +51,9 @@ db.exec(`
   );
 `);
 
+// Add unique index to prevent constraint violations
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_unique ON viewer_sessions(pdfShareToken, viewerId, sessionId);`);
+
 app.use(cors());
 app.use(express.json());
 
@@ -91,32 +94,31 @@ app.post('/api/upload', upload.single('pdf'), (req, res) => {
 
 app.post('/api/track', (req, res) => {
   try {
-    const { shareToken, viewerId, events, sessionId } = req.body;
+    const { shareToken, viewerId, events, sessionId: clientSessionId } = req.body;
     const now = new Date().toISOString();
+    const effectiveSessionId = clientSessionId || nanoid();
 
-    // Insert or ignore duplicate session
-    const insertStmt = db.prepare('INSERT OR IGNORE INTO viewer_sessions (pdfShareToken, viewerId, sessionId, firstSeen, lastSeen, lastPage, totalTimeMs) VALUES (?, ?, ?, ?, ?, 1, 0)');
-    insertStmt.run(shareToken, viewerId, sessionId || nanoid(), now, now);
-
-    // Update existing session
-    const updateStmt = db.prepare('UPDATE viewer_sessions SET lastSeen = ?, sessionId = ? WHERE pdfShareToken = ? AND viewerId = ?');
-    updateStmt.run(now, sessionId || nanoid(), shareToken, viewerId);
+    // Upsert session (handles first time + updates)
+    const upsertStmt = db.prepare(`INSERT OR REPLACE INTO viewer_sessions 
+      (pdfShareToken, viewerId, sessionId, firstSeen, lastSeen, lastPage, totalTimeMs) 
+      VALUES (?, ?, ?, COALESCE((SELECT firstSeen FROM viewer_sessions WHERE pdfShareToken=? AND viewerId=?), ?), ?, 1, 0)`);
+    upsertStmt.run(shareToken, viewerId, effectiveSessionId, shareToken, viewerId, now, now);
 
     // Insert page events
     const eventStmt = db.prepare('INSERT INTO page_events (pdfShareToken, viewerId, sessionId, page, timeSpentMs, scrollDepth, recordedAt) VALUES (?, ?, ?, ?, ?, ?, ?)');
     let totalTimeMs = 0;
     let maxPage = 1;
     for (const event of events) {
-      eventStmt.run(shareToken, viewerId, sessionId || nanoid(), event.page, event.timeSpentMs, event.scrollDepth, now);
+      eventStmt.run(shareToken, viewerId, effectiveSessionId, event.page, event.timeSpentMs, event.scrollDepth, now);
       totalTimeMs += event.timeSpentMs;
       if (event.page > maxPage) {
         maxPage = event.page;
       }
     }
 
-    // Update totals
-    const totalsStmt = db.prepare('UPDATE viewer_sessions SET totalTimeMs = totalTimeMs + ?, lastPage = GREATEST(lastPage, ?) WHERE pdfShareToken = ? AND viewerId = ?');
-    totalsStmt.run(totalTimeMs, maxPage, shareToken, viewerId);
+    // Update session totals (by pdf+viewer, idempotent)
+    const totalsStmt = db.prepare('UPDATE viewer_sessions SET totalTimeMs = totalTimeMs + ?, lastPage = GREATEST(lastPage, ?), lastSeen=? WHERE pdfShareToken = ? AND viewerId = ?');
+    totalsStmt.run(totalTimeMs, maxPage, now, shareToken, viewerId);
 
     res.json({ ok: true });
   } catch (error) {
