@@ -110,7 +110,7 @@ const LandingPage = () => {
         </div>
       </section>
 //
-      {/* Testimonials */}
+      {/* Testimonialsdd */}
       <section className="py-32">
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-24">
